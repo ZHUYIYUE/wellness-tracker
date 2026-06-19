@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>状态养护</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #f5f6fa;
+    min-height: 100vh;
+    padding: 16px;
+    color: #2d3436;
+  }
+  .header {
+    text-align: center;
+    margin-bottom: 20px;
+  }
+  .header h1 {
+    font-size: 22px;
+    font-weight: 600;
+    color: #2d3436;
+  }
+  .header .date {
+    font-size: 13px;
+    color: #a4a4a4;
+    margin-top: 4px;
+  }
+
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+
+  .维度 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .维度:last-child { border-bottom: none; }
+
+  .维度-label {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .维度-icon {
+    font-size: 20px;
+  }
+  .维度-name {
+    font-size: 15px;
+    font-weight: 500;
+  }
+  .维度-desc {
+    font-size: 11px;
+    color: #aaa;
+    margin-top: 2px;
+  }
+
+  .stars {
+    display: flex;
+    gap: 6px;
+    cursor: pointer;
+  }
+  .star {
+    font-size: 24px;
+    color: #e0e0e0;
+    transition: color 0.2s;
+    user-select: none;
+  }
+  .star.on { color: #fdcb6e; }
+
+  .维度.on-1 .维度-name { color: #e17055; }
+  .维度.on-2 .维度-name { color: #fdcb6e; }
+  .维度.on-3 .维度-name { color: #00b894; }
+
+  .submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: #00b894;
+    color: white;
+    border: none;
+    border-radius: 12px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 10px;
+    transition: opacity 0.2s;
+  }
+  .submit-btn:disabled {
+    background: #b2bec3;
+    cursor: not-allowed;
+  }
+  .submit-btn:active { opacity: 0.85; }
+
+  .submitted-badge {
+    text-align: center;
+    color: #00b894;
+    font-size: 13px;
+    padding: 8px 0;
+    display: none;
+  }
+
+  /* 周视图 */
+  .周-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #888;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .周-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 6px;
+    margin-bottom: 6px;
+  }
+  .周-day-label {
+    text-align: center;
+    font-size: 10px;
+    color: #b2bec3;
+    padding-bottom: 4px;
+  }
+  .周-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .周-bar {
+    width: 100%;
+    background: #eee;
+    border-radius: 4px;
+    overflow: hidden;
+    height: 40px;
+    display: flex;
+    align-items: flex-end;
+  }
+  .周-fill {
+    width: 100%;
+    background: linear-gradient(to top, #00b894, #55efc4);
+    border-radius: 4px;
+    transition: height 0.4s ease;
+  }
+  .周-score {
+    font-size: 10px;
+    color: #aaa;
+  }
+  .no-data { color: #ccc; font-size: 12px; text-align: center; padding: 16px 0; }
+
+  /* 周平均 */
+  .周-avg {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f0f0f0;
+  }
+  .周-avg-label { font-size: 13px; color: #888; }
+  .周-avg-val { font-size: 20px; font-weight: 700; color: #00b894; }
+  .周-avg-max { font-size: 12px; color: #b2bec3; }
+
+  /* 提示 */
+  .tip {
+    text-align: center;
+    font-size: 12px;
+    color: #b2bec3;
+    padding: 10px 0 4px;
+  }
+
+  /* 底部 */
+  .footer {
+    text-align: center;
+    font-size: 11px;
+    color: #d0d3d4;
+    padding: 20px 0 10px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🌿 状态养护</h1>
+  <div class="date" id="todayStr"></div>
+</div>
+
+<!-- 今日打卡 -->
+<div class="card" id="checkinCard">
+  <div id="维度列表">
+    <div class="维度" data-dim="sleep" data-label="睡眠">
+      <div class="维度-label">
+        <span class="维度-icon">🌙</span>
+        <div>
+          <div class="维度-name">睡眠</div>
+          <div class="维度-desc">11:15 前关灯</div>
+        </div>
+      </div>
+      <div class="stars">
+        <span class="star" data-val="1">★</span>
+        <span class="star" data-val="2">★</span>
+        <span class="star" data-val="3">★</span>
+      </div>
+    </div>
+    <div class="维度" data-dim="exercise" data-label="运动">
+      <div class="维度-label">
+        <span class="维度-icon">🏃‍♀️</span>
+        <div>
+          <div class="维度-name">运动</div>
+          <div class="维度-desc">提升代谢 / 恢复活力</div>
+        </div>
+      </div>
+      <div class="stars">
+        <span class="star" data-val="1">★</span>
+        <span class="star" data-val="2">★</span>
+        <span class="star" data-val="3">★</span>
+      </div>
+    </div>
+    <div class="维度" data-dim="care" data-label="护理">
+      <div class="维度-label">
+        <span class="维度-icon">✨</span>
+        <div>
+          <div class="维度-name">护理</div>
+          <div class="维度-desc">洗面奶 / 面膜 / 护肤</div>
+        </div>
+      </div>
+      <div class="stars">
+        <span class="star" data-val="1">★</span>
+        <span class="star" data-val="2">★</span>
+        <span class="star" data-val="3">★</span>
+      </div>
+    </div>
+    <div class="维度" data-dim="diet" data-label="饮食">
+      <div class="维度-label">
+        <span class="维度-icon">🥗</span>
+        <div>
+          <div class="维度-name">饮食</div>
+          <div class="维度-desc">清淡少油 / 健康搭配</div>
+        </div>
+      </div>
+      <div class="stars">
+        <span class="star" data-val="1">★</span>
+        <span class="star" data-val="2">★</span>
+        <span class="star" data-val="3">★</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="submitted-badge" id="submittedBadge">✅ 今日已打卡</div>
+  <button class="submit-btn" id="submitBtn" disabled onclick="submitCheckin()">打卡</button>
+</div>
+
+<!-- 周视图 -->
+<div class="card">
+  <div class="周-title">📊 近7天</div>
+  <div class="周-grid" id="weekGrid"></div>
+  <div class="no-data" id="weekEmpty">暂无打卡数据</div>
+  <div class="周-avg">
+    <span class="周-avg-label">本周平均</span>
+    <span><span class="周-avg-val" id="avgScore">--</span><span class="周-avg-max"> /3</span></span>
+  </div>
+</div>
+
+<div class="tip">点击星星即可打分 · 点"打卡"保存</div>
+<div class="footer">由 QClaw 驱动 · 数据自主可控</div>
+
+<script>
+  const WEEK_DAYS = ['一', '二', '三', '四', '五', '六', '日'];
+
+  let state = { sleep: 0, exercise: 0, care: 0, diet: 0 };
+  let submitted = false;
+
+  document.getElementById('todayStr').textContent = new Date().toLocaleDateString('zh-CN', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  });
+
+  // 渲染已选星数
+  function renderStars(dim) {
+    const row = document.querySelector(`[data-dim="${dim}"]`);
+    const stars = row.querySelectorAll('.star');
+    stars.forEach((s, i) => {
+      s.classList.toggle('on', i < state[dim]);
+    });
+    row.className = '维度' + (state[dim] ? ` on-${state[dim]}` : '');
+  }
+
+  // 绑定点击
+  document.querySelectorAll('.维度').forEach(row => {
+    const dim = row.dataset.dim;
+    row.querySelectorAll('.star').forEach(star => {
+      star.addEventListener('click', () => {
+        if (submitted) return;
+        state[dim] = parseInt(star.dataset.val);
+        renderStars(dim);
+        updateSubmitBtn();
+      });
+    });
+  });
+
+  function updateSubmitBtn() {
+    const allFilled = Object.values(state).every(v => v > 0);
+    document.getElementById('submitBtn').disabled = !allFilled || submitted;
+  }
+
+  function submitCheckin() {
+    if (submitted) return;
+    document.getElementById('submitBtn').textContent = '保存中...';
+    fetch('/api/submit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(state)
+    }).then(r => r.json()).then(() => {
+      submitted = true;
+      document.getElementById('submitBtn').textContent = '已打卡';
+      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submittedBadge').style.display = 'block';
+      loadToday();
+      loadWeek();
+    }).catch(() => {
+      document.getElementById('submitBtn').textContent = '出错，重试';
+      document.getElementById('submitBtn').disabled = false;
+    });
+  }
+
+  function loadToday() {
+    fetch('/api/today').then(r => r.json()).then(data => {
+      if (data && data.check_date) {
+        state = { sleep: data.sleep, exercise: data.exercise, care: data.care, diet: data.diet };
+        submitted = true;
+        ['sleep','exercise','care','diet'].forEach(renderStars);
+        document.getElementById('submitBtn').textContent = '已打卡';
+        document.getElementById('submitBtn').disabled = true;
+        document.getElementById('submittedBadge').style.display = 'block';
+      }
+    });
+  }
+
+  function loadWeek() {
+    fetch('/api/week').then(r => r.json()).then(data => {
+      const grid = document.getElementById('weekGrid');
+      grid.innerHTML = '';
+      const today = new Date();
+      let total = 0, count = 0;
+
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(d.getDate() - i);
+        const iso = d.toISOString().slice(0, 10);
+        const dayData = data.find(r => r.check_date === iso);
+        const dow = (d.getDay() + 6) % 7; // 周一=0
+
+        const label = document.createElement('div');
+        label.className = '周-day-label';
+        label.textContent = WEEK_DAYS[dow];
+
+        const wrap = document.createElement('div');
+        wrap.className = '周-bar-wrap';
+
+        const bar = document.createElement('div');
+        bar.className = '周-bar';
+        const fill = document.createElement('div');
+        fill.className = '周-fill';
+        if (dayData) {
+          const avg = (dayData.sleep + dayData.exercise + dayData.care + dayData.diet) / 4;
+          fill.style.height = (avg / 3 * 100) + '%';
+          total += avg; count++;
+        }
+        bar.appendChild(fill);
+
+        const score = document.createElement('div');
+        score.className = '周-score';
+        score.textContent = dayData
+          ? ((dayData.sleep + dayData.exercise + dayData.care + dayData.diet) / 4).toFixed(1)
+          : '--';
+
+        wrap.appendChild(bar);
+        wrap.appendChild(score);
+
+        grid.appendChild(label);
+        grid.appendChild(wrap);
+      }
+
+      document.getElementById('weekEmpty').style.display = count > 0 ? 'none' : 'block';
+      document.getElementById('avgScore').textContent = count > 0 ? (total / count).toFixed(1) : '--';
+    });
+  }
+
+  loadToday();
+  loadWeek();
+</script>
+</body>
+</html>
