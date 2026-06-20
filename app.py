@@ -206,6 +206,17 @@ def list_expenses():
     month = request.args.get('month', '')
     db = get_db()
     cur = db.cursor()
+
+    # 懒加载：如果 expenses 表为空，自动触发历史数据导入
+    cur.execute('SELECT COUNT(*) as cnt FROM expenses')
+    if cur.fetchone()['cnt'] == 0:
+        cur.close()
+        try:
+            import_legacy_data()
+        except Exception as e:
+            print('WARNING: auto-import failed:', e)
+        cur = db.cursor()
+
     if month:
         cur.execute('''
             SELECT * FROM expenses
@@ -325,10 +336,8 @@ def trigger_import():
 
 with app.app_context():
     init_db()
-    try:
-        import_legacy_data()
-    except Exception as e:
-        print('WARNING: legacy data import failed (non-fatal):', e)
+    # 延迟导入：不在启动时执行，避免数据库问题导致整个应用无法启动
+    # 数据将在首次访问 /api/import 时导入
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
