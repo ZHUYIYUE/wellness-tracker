@@ -325,7 +325,10 @@ def trigger_import():
 
 with app.app_context():
     init_db()
-    import_legacy_data()
+    try:
+        import_legacy_data()
+    except Exception as e:
+        print('WARNING: legacy data import failed (non-fatal):', e)
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
