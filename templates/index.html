@@ -592,7 +592,7 @@ function saveBudget(category) {
 
 // ========== 明细弹窗 ==========
 function showDetail(mode) {
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD 格式，跟随浏览器本地时区
   const overlay = document.getElementById('detailOverlay');
   const list = document.getElementById('detailList');
 
@@ -660,6 +660,11 @@ document.getElementById('expTime').value = now.toTimeString().slice(0, 5);
 initCategoryPills();
 loadToday();
 loadWeek();
+
+// 每30秒自动刷新记账汇总（实时更新）
+setInterval(() => {
+  loadSummary();
+}, 30000);
 </script>
 </body>
 </html>
