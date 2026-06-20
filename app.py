@@ -204,34 +204,37 @@ def get_all():
 @app.route('/api/expenses', methods=['GET'])
 def list_expenses():
     month = request.args.get('month', '')
-    db = get_db()
-    cur = db.cursor()
-
-    # 懒加载：如果 expenses 表为空，自动触发历史数据导入
-    cur.execute('SELECT COUNT(*) as cnt FROM expenses')
-    if cur.fetchone()['cnt'] == 0:
-        cur.close()
-        try:
-            import_legacy_data()
-        except Exception as e:
-            print('WARNING: auto-import failed:', e)
+    try:
+        db = get_db()
         cur = db.cursor()
 
-    if month:
-        cur.execute('''
-            SELECT * FROM expenses
-            WHERE to_char(expense_date, 'YYYY-MM') = %s
-            ORDER BY expense_date DESC, expense_time DESC
-        ''', (month,))
-    else:
-        cur.execute('''
-            SELECT * FROM expenses
-            ORDER BY expense_date DESC, expense_time DESC
-            LIMIT 100
-        ''')
-    rows = cur.fetchall()
-    cur.close()
-    return jsonify([dict(r) for r in rows])
+        # 懒加载：如果 expenses 表为空，自动触发历史数据导入
+        cur.execute('SELECT COUNT(*) as cnt FROM expenses')
+        if cur.fetchone()['cnt'] == 0:
+            cur.close()
+            try:
+                import_legacy_data()
+            except Exception as e:
+                print('WARNING: auto-import failed:', e)
+            cur = db.cursor()
+
+        if month:
+            cur.execute('''
+                SELECT * FROM expenses
+                WHERE to_char(expense_date, 'YYYY-MM') = %s
+                ORDER BY expense_date DESC, expense_time DESC
+            ''', (month,))
+        else:
+            cur.execute('''
+                SELECT * FROM expenses
+                ORDER BY expense_date DESC, expense_time DESC
+                LIMIT 100
+            ''')
+        rows = cur.fetchall()
+        cur.close()
+        return jsonify([dict(r) for r in rows])
+    except Exception as e:
+        return jsonify({'error': str(e), 'type': type(e).__name__}), 500
 
 @app.route('/api/expenses', methods=['POST'])
 def create_expense():
