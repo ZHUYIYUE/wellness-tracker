@@ -73,17 +73,22 @@ def init_db():
     db.commit()
     cur.close()
 
-def import_legacy_data():
-    """导入历史记账数据（幂等：检查是否已导入过）"""
+def import_legacy_data(force=False):
+    """导入历史记账数据（幂等：除非 force=True）"""
     db = get_db()
     cur = db.cursor()
 
-    # 检查是否已导入
-    cur.execute('SELECT COUNT(*) as cnt FROM expenses WHERE imported = TRUE')
-    if cur.fetchone()['cnt'] > 0:
-        print('Legacy data already imported, skipping.')
-        cur.close()
-        return
+    if not force:
+        # 检查是否已导入
+        cur.execute('SELECT COUNT(*) as cnt FROM expenses WHERE imported = TRUE')
+        if cur.fetchone()['cnt'] > 0:
+            print('Legacy data already imported, skipping. Use force=True to reimport.')
+            cur.close()
+            return
+    else:
+        # 强制重新导入：先删除历史导入数据
+        cur.execute('DELETE FROM expenses WHERE imported = TRUE')
+        print('Deleted old imported records for reimport.')
 
     # 导入支出记录
     expenses_path = os.path.join(BASE_DIR, 'expenses.json')
@@ -92,16 +97,25 @@ def import_legacy_data():
             data = json.load(f)
         records = data.get('records', [])
         inserted = 0
+        skipped = 0
         for r in records:
             try:
+                expense_date = r.get('date') or str(date.today())
+                expense_time = r.get('time') or '00:00'
+                category = r.get('category') or '未分类'
+                description = r.get('description') or r.get('note') or r.get('project') or ''
+                amount = r.get('amount') or 0
                 cur.execute('''
                     INSERT INTO expenses (expense_date, expense_time, category, description, amount, imported)
                     VALUES (%s, %s, %s, %s, %s, TRUE)
-                ''', (r['date'], r['time'], r['category'], r['description'], r['amount']))
+                ''', (expense_date, expense_time, category, description, amount))
                 inserted += 1
             except Exception as e:
-                print('import expense error:', e)
-        print(f'expenses import: inserted={inserted}')
+                print('import expense error:', e, 'record:', r)
+                skipped += 1
+                db.rollback()  # 回滚当前事务，避免影响后续插入
+                cur = db.cursor()  # 重新创建游标
+        print(f'expenses import: inserted={inserted}, skipped={skipped}')
     else:
         print(f'expenses.json not found at {expenses_path}')
 
@@ -305,7 +319,8 @@ def set_budget(category):
 
 @app.route('/api/import', methods=['POST'])
 def trigger_import():
-    import_legacy_data()
+    force = request.get_json(silent=True) or {}
+    import_legacy_data(force=force.get('force', False))
     return jsonify({'ok': True})
 
 with app.app_context():
