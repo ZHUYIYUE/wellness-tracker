@@ -7,7 +7,7 @@ import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from flask import Flask, request, jsonify, render_template, g
-from datetime import date, timedelta, datetime
+from datetime import date, datetime, timezone, timedelta
 import json
 
 app = Flask(__name__)
@@ -15,16 +15,34 @@ app = Flask(__name__)
 DATABASE_URL = os.environ.get('DATABASE_URL')
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
+
+def cn_today():
+    """返回东八区今天的日期"""
+    return (datetime.now(timezone.utc) + timedelta(hours=8)).date()
+
+
+def cn_month():
+    """返回东八区当前月份 YYYY-MM"""
+    return cn_today().strftime('%Y-%m')
+
+
+def cn_time():
+    """返回东八区当前时间 HH:MM"""
+    return (datetime.now(timezone.utc) + timedelta(hours=8)).strftime('%H:%M')
+
+
 def get_db():
     if 'db' not in g:
         g.db = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return g.db
+
 
 @app.teardown_appcontext
 def close_db(e=None):
     db = g.pop('db', None)
     if db is not None:
         db.close()
+
 
 def init_db():
     db = get_db()
@@ -58,9 +76,8 @@ def init_db():
     try:
         cur.execute('ALTER TABLE expenses ADD COLUMN imported BOOLEAN DEFAULT FALSE')
         db.commit()
-    except Exception as e:
+    except Exception:
         db.rollback()
-        pass  # 字段已存在
 
     cur.execute('''
         CREATE TABLE IF NOT EXISTS budgets (
@@ -73,24 +90,22 @@ def init_db():
     db.commit()
     cur.close()
 
+
 def import_legacy_data(force=False):
     """导入历史记账数据（幂等：除非 force=True）"""
     db = get_db()
     cur = db.cursor()
 
     if not force:
-        # 检查是否已导入
         cur.execute('SELECT COUNT(*) as cnt FROM expenses WHERE imported = TRUE')
         if cur.fetchone()['cnt'] > 0:
-            print('Legacy data already imported, skipping. Use force=True to reimport.')
+            print('Legacy data already imported, skipping.')
             cur.close()
             return
     else:
-        # 强制重新导入：先删除历史导入数据
         cur.execute('DELETE FROM expenses WHERE imported = TRUE')
         print('Deleted old imported records for reimport.')
 
-    # 导入支出记录
     expenses_path = os.path.join(BASE_DIR, 'expenses.json')
     if os.path.exists(expenses_path):
         with open(expenses_path, 'r', encoding='utf-8') as f:
@@ -100,7 +115,7 @@ def import_legacy_data(force=False):
         skipped = 0
         for r in records:
             try:
-                expense_date = r.get('date') or str(date.today())
+                expense_date = r.get('date') or str(cn_today())
                 expense_time = r.get('time') or '00:00'
                 category = r.get('category') or '未分类'
                 description = r.get('description') or r.get('note') or r.get('project') or ''
@@ -111,15 +126,14 @@ def import_legacy_data(force=False):
                 ''', (expense_date, expense_time, category, description, amount))
                 inserted += 1
             except Exception as e:
-                print('import expense error:', e, 'record:', r)
+                print('import error:', e, r)
                 skipped += 1
-                db.rollback()  # 回滚当前事务，避免影响后续插入
-                cur = db.cursor()  # 重新创建游标
-        print(f'expenses import: inserted={inserted}, skipped={skipped}')
+                db.rollback()
+                cur = db.cursor()
+        print(f'imported={inserted}, skipped={skipped}')
     else:
         print(f'expenses.json not found at {expenses_path}')
 
-    # 导入预算设置
     budgets_path = os.path.join(BASE_DIR, 'fixed_expenses.json')
     if os.path.exists(budgets_path):
         with open(budgets_path, 'r', encoding='utf-8') as f:
@@ -135,15 +149,27 @@ def import_legacy_data(force=False):
                     updated_at = CURRENT_TIMESTAMP
             ''', (cat, amount))
         print('budgets imported')
-    else:
-        print(f'fixed_expenses.json not found at {budgets_path}')
 
     db.commit()
     cur.close()
 
+
+def _serialize_rows(rows):
+    """将含 time/date 对象的行转为 JSON 可序列化的 dict"""
+    result = []
+    for r in rows:
+        d = dict(r)
+        for key in ('expense_time', 'expense_date', 'check_date', 'created_at', 'updated_at'):
+            if key in d and hasattr(d[key], 'isoformat'):
+                d[key] = d[key].isoformat()
+        result.append(d)
+    return result
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 # ==================== 状态养护 API ====================
 
@@ -151,29 +177,31 @@ def index():
 def get_today():
     db = get_db()
     cur = db.cursor()
-    today = date.today()
+    today = cn_today()
     cur.execute('SELECT * FROM checkins WHERE check_date = %s', (today,))
     row = cur.fetchone()
     cur.close()
     return jsonify(dict(row) if row else None)
 
+
 @app.route('/api/week')
 def get_week():
     db = get_db()
     cur = db.cursor()
-    seven_days_ago = date.today() - timedelta(days=6)
+    seven_days_ago = cn_today() - timedelta(days=6)
     cur.execute(
         'SELECT * FROM checkins WHERE check_date >= %s ORDER BY check_date ASC',
         (seven_days_ago,)
     )
     rows = cur.fetchall()
     cur.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify(_serialize_rows(rows))
+
 
 @app.route('/api/submit', methods=['POST'])
 def submit():
     data = request.get_json()
-    today = date.today()
+    today = cn_today()
     db = get_db()
     cur = db.cursor()
     cur.execute('''
@@ -190,6 +218,7 @@ def submit():
     cur.close()
     return jsonify({'ok': True})
 
+
 @app.route('/api/all')
 def get_all():
     db = get_db()
@@ -197,7 +226,8 @@ def get_all():
     cur.execute('SELECT * FROM checkins ORDER BY check_date DESC LIMIT 90')
     rows = cur.fetchall()
     cur.close()
-    return jsonify([dict(r) for r in rows])
+    return jsonify(_serialize_rows(rows))
+
 
 # ==================== 记账 API ====================
 
@@ -232,18 +262,10 @@ def list_expenses():
             ''')
         rows = cur.fetchall()
         cur.close()
-        # 转换 time/date 对象为字符串，避免 JSON 序列化错误
-        result = []
-        for r in rows:
-            d = dict(r)
-            if hasattr(d.get('expense_time'), 'isoformat'):
-                d['expense_time'] = d['expense_time'].isoformat()
-            if hasattr(d.get('expense_date'), 'isoformat'):
-                d['expense_date'] = d['expense_date'].isoformat()
-            result.append(d)
-        return jsonify(result)
+        return jsonify(_serialize_rows(rows))
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
 
 @app.route('/api/expenses', methods=['POST'])
 def create_expense():
@@ -255,8 +277,8 @@ def create_expense():
         VALUES (%s, %s, %s, %s, %s, FALSE)
         RETURNING id
     ''', (
-        data.get('date', str(date.today())),
-        data.get('time', datetime.now().strftime('%H:%M')),
+        data.get('date', str(cn_today())),
+        data.get('time', cn_time()),
         data['category'],
         data['description'],
         data['amount']
@@ -265,6 +287,7 @@ def create_expense():
     db.commit()
     cur.close()
     return jsonify({'ok': True, 'id': new_id})
+
 
 @app.route('/api/expenses/<int:eid>', methods=['DELETE'])
 def delete_expense(eid):
@@ -275,9 +298,10 @@ def delete_expense(eid):
     cur.close()
     return jsonify({'ok': True})
 
+
 @app.route('/api/expenses/summary')
 def expenses_summary():
-    month = request.args.get('month', date.today().strftime('%Y-%m'))
+    month = request.args.get('month', cn_month())
     db = get_db()
     cur = db.cursor()
 
@@ -297,7 +321,7 @@ def expenses_summary():
     ''', (month,))
     month_total = cur.fetchone()
 
-    today = date.today()
+    today = cn_today()
     cur.execute('''
         SELECT SUM(amount) as total, COUNT(*) as count
         FROM expenses
@@ -315,6 +339,7 @@ def expenses_summary():
         'by_category': by_category
     })
 
+
 @app.route('/api/budgets', methods=['GET'])
 def get_budgets():
     db = get_db()
@@ -323,6 +348,7 @@ def get_budgets():
     rows = cur.fetchall()
     cur.close()
     return jsonify([dict(r) for r in rows])
+
 
 @app.route('/api/budgets/<category>', methods=['PUT'])
 def set_budget(category):
@@ -340,16 +366,17 @@ def set_budget(category):
     cur.close()
     return jsonify({'ok': True})
 
+
 @app.route('/api/import', methods=['POST'])
 def trigger_import():
     force = request.get_json(silent=True) or {}
     import_legacy_data(force=force.get('force', False))
     return jsonify({'ok': True})
 
+
 with app.app_context():
     init_db()
     # 延迟导入：不在启动时执行，避免数据库问题导致整个应用无法启动
-    # 数据将在首次访问 /api/import 时导入
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
