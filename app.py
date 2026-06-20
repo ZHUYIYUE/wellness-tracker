@@ -232,9 +232,18 @@ def list_expenses():
             ''')
         rows = cur.fetchall()
         cur.close()
-        return jsonify([dict(r) for r in rows])
+        # 转换 time/date 对象为字符串，避免 JSON 序列化错误
+        result = []
+        for r in rows:
+            d = dict(r)
+            if hasattr(d.get('expense_time'), 'isoformat'):
+                d['expense_time'] = d['expense_time'].isoformat()
+            if hasattr(d.get('expense_date'), 'isoformat'):
+                d['expense_date'] = d['expense_date'].isoformat()
+            result.append(d)
+        return jsonify(result)
     except Exception as e:
-        return jsonify({'error': str(e), 'type': type(e).__name__}), 500
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/expenses', methods=['POST'])
 def create_expense():
