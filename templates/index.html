@@ -593,35 +593,38 @@ function saveBudget(category) {
 // ========== 明细弹窗 ==========
 function showDetail(mode) {
   const todayStr = new Date().toISOString().slice(0, 10);
-  let items;
-  if (mode === 'today') {
-    items = expensesData.filter(e => e.expense_date === todayStr);
-    document.getElementById('detailTitle').textContent = '📋 今日支出明细';
-  } else {
-    items = expensesData;
-    document.getElementById('detailTitle').textContent = '📋 本月支出明细';
-  }
-
+  const overlay = document.getElementById('detailOverlay');
   const list = document.getElementById('detailList');
-  if (items.length === 0) {
-    list.innerHTML = '<div class="no-data" style="padding:30px 0;font-size:14px">暂无记录</div>';
-    document.getElementById('detailTotal').textContent = '';
-  } else {
-    list.innerHTML = items.map(e => `
-      <div class="expense-item">
-        <div class="expense-left">
-          <div class="expense-desc">${e.description}</div>
-          <div class="expense-meta">${e.expense_date} ${e.expense_time.slice(0,5)} · ${e.category}</div>
+
+  list.innerHTML = '<div class="no-data" style="padding:30px 0;font-size:14px">加载中...</div>';
+  overlay.classList.add('show');
+
+  fetch('/api/expenses?month=' + currentMonth).then(r => r.json()).then(data => {
+    const items = mode === 'today' ? data.filter(e => e.expense_date === todayStr) : data;
+    document.getElementById('detailTitle').textContent =
+      mode === 'today' ? '📋 今日支出明细' : '📋 本月支出明细';
+
+    if (items.length === 0) {
+      list.innerHTML = '<div class="no-data" style="padding:30px 0;font-size:14px">暂无记录</div>';
+      document.getElementById('detailTotal').textContent = '';
+    } else {
+      list.innerHTML = items.map(e => `
+        <div class="expense-item">
+          <div class="expense-left">
+            <div class="expense-desc">${e.description}</div>
+            <div class="expense-meta">${e.expense_date} ${e.expense_time.slice(0,5)} · ${e.category}</div>
+          </div>
+          <div class="expense-right">
+            <span class="expense-amount">${formatMoney(e.amount)}</span>
+          </div>
         </div>
-        <div class="expense-right">
-          <span class="expense-amount">${formatMoney(e.amount)}</span>
-        </div>
-      </div>
-    `).join('');
-    const total = items.reduce((s, e) => s + parseFloat(e.amount), 0);
-    document.getElementById('detailTotal').innerHTML = `<span>${items.length} 笔记录</span><span style="color:#e17055">合计 ${formatMoney(total)}</span>`;
-  }
-  document.getElementById('detailOverlay').classList.add('show');
+      `).join('');
+      const total = items.reduce((s, e) => s + parseFloat(e.amount), 0);
+      document.getElementById('detailTotal').innerHTML = `<span>${items.length} 笔记录</span><span style="color:#e17055">合计 ${formatMoney(total)}</span>`;
+    }
+  }).catch(() => {
+    list.innerHTML = '<div class="no-data" style="padding:30px 0;font-size:14px;color:#e17055">加载失败，请稍后重试</div>';
+  });
 }
 
 function closeDetail() {
