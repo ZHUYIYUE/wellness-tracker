@@ -13,23 +13,18 @@ import json
 app = Flask(__name__)
 
 DATABASE_URL = os.environ.get('DATABASE_URL')
-
-EXPENSES_JSON_PATH = '/Users/yiyuezhu/.qclaw/workspace/expense-tracker/expenses.json'
-BUDGETS_JSON_PATH = '/Users/yiyuezhu/.qclaw/workspace/expense-tracker/fixed_expenses.json'
-
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 def get_db():
     if 'db' not in g:
         g.db = psycopg2.connect(DATABASE_URL, cursor_factory=RealDictCursor)
     return g.db
 
-
 @app.teardown_appcontext
 def close_db(e=None):
     db = g.pop('db', None)
     if db is not None:
         db.close()
-
 
 def init_db():
     db = get_db()
@@ -59,6 +54,13 @@ def init_db():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # 添加 imported 字段（兼容已有表）
+    try:
+        cur.execute('ALTER TABLE expenses ADD COLUMN imported BOOLEAN DEFAULT FALSE')
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        pass  # 字段已存在
 
     cur.execute('''
         CREATE TABLE IF NOT EXISTS budgets (
@@ -71,38 +73,42 @@ def init_db():
     db.commit()
     cur.close()
 
-
 def import_legacy_data():
-    """一次性导入历史记账数据（幂等：按日期+时间+描述去重）"""
+    """导入历史记账数据（幂等：检查是否已导入过）"""
     db = get_db()
     cur = db.cursor()
 
+    # 检查是否已导入
+    cur.execute('SELECT COUNT(*) as cnt FROM expenses WHERE imported = TRUE')
+    if cur.fetchone()['cnt'] > 0:
+        print('Legacy data already imported, skipping.')
+        cur.close()
+        return
+
     # 导入支出记录
-    if os.path.exists(EXPENSES_JSON_PATH):
-        with open(EXPENSES_JSON_PATH, 'r', encoding='utf-8') as f:
+    expenses_path = os.path.join(BASE_DIR, 'expenses.json')
+    if os.path.exists(expenses_path):
+        with open(expenses_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
         records = data.get('records', [])
         inserted = 0
-        skipped = 0
         for r in records:
             try:
                 cur.execute('''
-                    INSERT INTO expenses (expense_date, expense_time, category, description, amount)
-                    VALUES (%s, %s, %s, %s, %s)
-                    ON CONFLICT DO NOTHING
+                    INSERT INTO expenses (expense_date, expense_time, category, description, amount, imported)
+                    VALUES (%s, %s, %s, %s, %s, TRUE)
                 ''', (r['date'], r['time'], r['category'], r['description'], r['amount']))
-                if cur.rowcount > 0:
-                    inserted += 1
-                else:
-                    skipped += 1
+                inserted += 1
             except Exception as e:
                 print('import expense error:', e)
-                skipped += 1
-        print(f'expenses import: inserted={inserted}, skipped={skipped}')
+        print(f'expenses import: inserted={inserted}')
+    else:
+        print(f'expenses.json not found at {expenses_path}')
 
     # 导入预算设置
-    if os.path.exists(BUDGETS_JSON_PATH):
-        with open(BUDGETS_JSON_PATH, 'r', encoding='utf-8') as f:
+    budgets_path = os.path.join(BASE_DIR, 'fixed_expenses.json')
+    if os.path.exists(budgets_path):
+        with open(budgets_path, 'r', encoding='utf-8') as f:
             budgets = json.load(f)
         for cat, amount in budgets.items():
             if cat == '固定合计':
@@ -114,15 +120,16 @@ def import_legacy_data():
                     amount = EXCLUDED.amount,
                     updated_at = CURRENT_TIMESTAMP
             ''', (cat, amount))
+        print('budgets imported')
+    else:
+        print(f'fixed_expenses.json not found at {budgets_path}')
 
     db.commit()
     cur.close()
 
-
 @app.route('/')
 def index():
     return render_template('index.html')
-
 
 # ==================== 状态养护 API ====================
 
@@ -136,7 +143,6 @@ def get_today():
     cur.close()
     return jsonify(dict(row) if row else None)
 
-
 @app.route('/api/week')
 def get_week():
     db = get_db()
@@ -149,7 +155,6 @@ def get_week():
     rows = cur.fetchall()
     cur.close()
     return jsonify([dict(r) for r in rows])
-
 
 @app.route('/api/submit', methods=['POST'])
 def submit():
@@ -171,7 +176,6 @@ def submit():
     cur.close()
     return jsonify({'ok': True})
 
-
 @app.route('/api/all')
 def get_all():
     db = get_db()
@@ -181,12 +185,11 @@ def get_all():
     cur.close()
     return jsonify([dict(r) for r in rows])
 
-
 # ==================== 记账 API ====================
 
 @app.route('/api/expenses', methods=['GET'])
 def list_expenses():
-    month = request.args.get('month', '')  # 格式 YYYY-MM
+    month = request.args.get('month', '')
     db = get_db()
     cur = db.cursor()
     if month:
@@ -205,15 +208,14 @@ def list_expenses():
     cur.close()
     return jsonify([dict(r) for r in rows])
 
-
 @app.route('/api/expenses', methods=['POST'])
 def create_expense():
     data = request.get_json()
     db = get_db()
     cur = db.cursor()
     cur.execute('''
-        INSERT INTO expenses (expense_date, expense_time, category, description, amount)
-        VALUES (%s, %s, %s, %s, %s)
+        INSERT INTO expenses (expense_date, expense_time, category, description, amount, imported)
+        VALUES (%s, %s, %s, %s, %s, FALSE)
         RETURNING id
     ''', (
         data.get('date', str(date.today())),
@@ -227,7 +229,6 @@ def create_expense():
     cur.close()
     return jsonify({'ok': True, 'id': new_id})
 
-
 @app.route('/api/expenses/<int:eid>', methods=['DELETE'])
 def delete_expense(eid):
     db = get_db()
@@ -237,14 +238,12 @@ def delete_expense(eid):
     cur.close()
     return jsonify({'ok': True})
 
-
 @app.route('/api/expenses/summary')
 def expenses_summary():
     month = request.args.get('month', date.today().strftime('%Y-%m'))
     db = get_db()
     cur = db.cursor()
 
-    # 月度汇总
     cur.execute('''
         SELECT category, SUM(amount) as total, COUNT(*) as count
         FROM expenses
@@ -254,7 +253,6 @@ def expenses_summary():
     ''', (month,))
     by_category = [dict(r) for r in cur.fetchall()]
 
-    # 月度总额
     cur.execute('''
         SELECT SUM(amount) as total, COUNT(*) as count
         FROM expenses
@@ -262,7 +260,6 @@ def expenses_summary():
     ''', (month,))
     month_total = cur.fetchone()
 
-    # 今日总额
     today = date.today()
     cur.execute('''
         SELECT SUM(amount) as total, COUNT(*) as count
@@ -281,7 +278,6 @@ def expenses_summary():
         'by_category': by_category
     })
 
-
 @app.route('/api/budgets', methods=['GET'])
 def get_budgets():
     db = get_db()
@@ -290,7 +286,6 @@ def get_budgets():
     rows = cur.fetchall()
     cur.close()
     return jsonify([dict(r) for r in rows])
-
 
 @app.route('/api/budgets/<category>', methods=['PUT'])
 def set_budget(category):
@@ -308,17 +303,14 @@ def set_budget(category):
     cur.close()
     return jsonify({'ok': True})
 
-
 @app.route('/api/import', methods=['POST'])
 def trigger_import():
     import_legacy_data()
     return jsonify({'ok': True})
 
-
 with app.app_context():
     init_db()
     import_legacy_data()
-
 
 if __name__ == '__main__':
     app.run(debug=True, port=5001)
