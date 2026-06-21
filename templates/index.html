@@ -85,7 +85,7 @@
   .dim-name { font-size: 15px; font-weight: 500; }
   .dim-desc { font-size: 11px; color: #aaa; margin-top: 2px; }
   .stars { display: flex; gap: 6px; cursor: pointer; }
-  .star { font-size: 24px; color: #e0e0e0; transition: color 0.2s; user-select: none; }
+  .star { font-size: 24px; color: #e0e0e0; transition: color 0.2s; user-select: none; padding: 8px 4px; min-width: 40px; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; -webkit-tap-highlight-color: transparent; }
   .star.on { color: #fdcb6e; }
   .dim.on-1 .dim-name { color: #e17055; }
   .dim.on-2 .dim-name { color: #fdcb6e; }
@@ -635,7 +635,6 @@ const starDims = ['sleep_score','exercise_score','grooming_score','diet_regular'
 function initStars() {
   document.querySelectorAll('.star').forEach(star => {
     star.addEventListener('click', () => {
-      if (submitted) return;
       const dim = star.dataset.dim;
       const val = parseInt(star.dataset.val);
       state[dim] = val;
@@ -687,8 +686,7 @@ function setupListeners() {
 }
 
 function submitCheckin() {
-  if (submitted) return;
-  // 至少填了睡眠时间或运动时长或任意评分
+  // 允许更新已打卡记录
   const payload = { ...state };
   payload.note = document.getElementById('noteInput').value || '';
 
@@ -710,20 +708,18 @@ function submitCheckin() {
 function loadToday() {
   fetch('/api/today').then(r => r.json()).then(data => {
     if (data && data.check_date) {
-      submitted = true;
+      submitted = false;  // 允许更新
       state = { ...data };
-      // 填充表单
       if (data.sleep_time) document.getElementById('sleepTime').value = data.sleep_time.slice(0,5);
       if (data.exercise_min) document.getElementById('exerciseMin').value = data.exercise_min;
       if (data.exercise_type) document.getElementById('exerciseType').value = data.exercise_type;
       if (data.note) document.getElementById('noteInput').value = data.note;
-      // 渲染星星
       starDims.forEach(dim => {
         const val = state[dim];
- if (val) document.querySelectorAll(`.star[data-dim="${dim}"]`).forEach(s => s.classList.toggle('on', parseInt(s.dataset.val) <= val));
+        if (val) document.querySelectorAll(`.star[data-dim="${dim}"]`).forEach(s => s.classList.toggle('on', parseInt(s.dataset.val) <= val));
       });
-      document.getElementById('submitBtn').textContent = '已打卡';
-      document.getElementById('submitBtn').disabled = true;
+      document.getElementById('submitBtn').textContent = '更新打卡';
+      document.getElementById('submitBtn').disabled = false;
       document.getElementById('submittedBadge').style.display = 'block';
     }
   });
