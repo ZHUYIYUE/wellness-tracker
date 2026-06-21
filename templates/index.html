@@ -327,39 +327,94 @@
     </div>
   </div>
 
+  <!-- 打卡卡片 -->
   <div class="card" id="checkinCard">
-    <div id="dimList">
-      <div class="dim" data-dim="sleep" data-label="睡眠">
-        <div class="dim-label">
-          <span class="dim-icon">🌙</span>
-          <div><div class="dim-name">睡眠</div><div class="dim-desc">11:15 前关灯</div></div>
-        </div>
-        <div class="stars"><span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span></div>
+    <div class="card-title">🌙 睡眠（睡前打卡）</div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:13px;color:#636e72">熄灯时间</label>
+      <input type="time" id="sleepTime" class="input" style="margin-top:6px;width:140px" value="23:15">
+    </div>
+    <div style="font-size:12px;color:#aaa;margin-bottom:6px" id="sleepHint">💡 22:00前 3分 · 22:30前 2分 · 23:00前 1分 · 23:00后 0分</div>
+    <div class="stars" style="justify-content:center;margin-bottom:16px">
+      <span class="star" data-dim="sleep_score" data-val="3">★</span>
+      <span class="star" data-dim="sleep_score" data-val="2">★</span>
+      <span class="star" data-dim="sleep_score" data-val="1">★</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🏃 运动</div>
+    <div style="display:flex;gap:10px;align-items:flex-end;margin-bottom:12px">
+      <div style="flex:1">
+        <label style="font-size:13px;color:#636e72">运动时长（分钟）</label>
+        <input type="number" id="exerciseMin" class="input" style="margin-top:6px" placeholder="0" min="0" max="300">
       </div>
-      <div class="dim" data-dim="exercise" data-label="运动">
-        <div class="dim-label">
-          <span class="dim-icon">🏃</span>
-          <div><div class="dim-name">运动</div><div class="dim-desc">提升代谢 / 恢复活力</div></div>
-        </div>
-        <div class="stars"><span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span></div>
-      </div>
-      <div class="dim" data-dim="care" data-label="护理">
-        <div class="dim-label">
-          <span class="dim-icon">✨</span>
-          <div><div class="dim-name">护理</div><div class="dim-desc">洗面奶 / 面膜 / 护肤</div></div>
-        </div>
-        <div class="stars"><span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span></div>
-      </div>
-      <div class="dim" data-dim="diet" data-label="饮食">
-        <div class="dim-label">
-          <span class="dim-icon">🥗</span>
-          <div><div class="dim-name">饮食</div><div class="dim-desc">清淡少油 / 健康搭配</div></div>
-        </div>
-        <div class="stars"><span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span></div>
+      <div style="flex:1">
+        <label style="font-size:13px;color:#636e72">类型</label>
+        <select id="exerciseType" class="input" style="margin-top:6px">
+          <option value="有氧">有氧</option>
+          <option value="无氧">无氧</option>
+          <option value="混合">混合</option>
+          <option value="拉伸">拉伸</option>
+        </select>
       </div>
     </div>
+    <div style="font-size:12px;color:#aaa;margin-bottom:6px" id="exHint">💡 ≥60分 3分 · ≥30分 2分 · >0分 1分 · 0分 0分</div>
+    <div class="stars" style="justify-content:center;margin-bottom:16px">
+      <span class="star" data-dim="exercise_score" data-val="3">★</span>
+      <span class="star" data-dim="exercise_score" data-val="2">★</span>
+      <span class="star" data-dim="exercise_score" data-val="1">★</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">✨ 形象管理</div>
+    <div style="font-size:12px;color:#aaa;margin-bottom:6px">护肤 · 穿搭 · 发型 · 整体形象</div>
+    <div class="stars" style="justify-content:center;margin-bottom:16px">
+      <span class="star" data-dim="grooming_score" data-val="3">★</span>
+      <span class="star" data-dim="grooming_score" data-val="2">★</span>
+      <span class="star" data-dim="grooming_score" data-val="1">★</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">🥗 饮食</div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:13px;color:#636e72">规律度</label>
+      <div class="stars" style="justify-content:center;margin:6px 0 12px">
+        <span class="star" data-dim="diet_regular" data-val="3">★</span>
+        <span class="star" data-dim="diet_regular" data-val="2">★</span>
+        <span class="star" data-dim="diet_regular" data-val="1">★</span>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:13px;color:#636e72">饱腹度（1=吃太少 3=刚好吃撑）</label>
+      <div class="stars" style="justify-content:center;margin:6px 0 12px">
+        <span class="star" data-dim="diet_fullness" data-val="3">★</span>
+        <span class="star" data-dim="diet_fullness" data-val="2">★</span>
+        <span class="star" data-dim="diet_fullness" data-val="1">★</span>
+      </div>
+    </div>
+    <div style="margin-bottom:12px">
+      <label style="font-size:13px;color:#636e72">油腻度（1=清淡 3=很油）</label>
+      <div class="stars" style="justify-content:center;margin:6px 0 12px">
+        <span class="star" data-dim="diet_grease" data-val="3">★</span>
+        <span class="star" data-dim="diet_grease" data-val="2">★</span>
+        <span class="star" data-dim="diet_grease" data-val="1">★</span>
+      </div>
+    </div>
+    <div style="font-size:12px;color:#aaa;margin-bottom:6px">综合饮食评分</div>
+    <div class="stars" style="justify-content:center;margin-bottom:16px">
+      <span class="star" data-dim="diet_score" data-val="3">★</span>
+      <span class="star" data-dim="diet_score" data-val="2">★</span>
+      <span class="star" data-dim="diet_score" data-val="1">★</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <textarea id="noteInput" class="input" rows="2" placeholder="今日备注（可选）" style="resize:none"></textarea>
     <div class="submitted-badge" id="submittedBadge">✅ 今日已打卡</div>
-    <button class="submit-btn" id="submitBtn" disabled onclick="submitCheckin()">打卡</button>
+    <button class="submit-btn" id="submitBtn" onclick="submitCheckin()">打卡</button>
   </div>
 
   <div class="card">
@@ -497,7 +552,7 @@ let selectedCategory = '餐饮外卖';
 let expensesData = [];
 let budgetsData = [];
 
-let state = { sleep:0, exercise:0, care:0, diet:0 };
+let state = {};
 let submitted = false;
 
 // 日期显示
@@ -527,17 +582,20 @@ function switchTab(id) {
 
 // ========== 今日综合卡片 ==========
 function loadTodayCard() {
-  // 打卡分
   fetch('/api/today').then(r=>r.json()).then(data => {
     if (data && data.check_date) {
-      const avg = ((data.sleep+data.exercise+data.care+data.diet)/4).toFixed(1);
+      // 计算综合分：各维度平均
+      const dims = [data.sleep_score, data.exercise_score, data.grooming_score, data.diet_score];
+      const valid = dims.filter(v => v != null && v > 0);
+      const avg = valid.length ? (valid.reduce((a,b)=>a+b,0) / valid.length).toFixed(1) : '--';
       document.getElementById('tcScore').textContent = avg;
       const msgs = [];
-      if (data.sleep <= 1) msgs.push('昨晚睡眠较差');
-      else if (data.sleep >= 3) msgs.push('睡眠不错');
-      if (data.exercise >= 2) msgs.push('有运动');
-      else msgs.push('今天还没运动');
-      document.getElementById('tcSummary').textContent = msgs.length ? msgs.join('，') + ' → 继续保持' : '今天状态不错，继续保持';
+      if (data.sleep_score >= 3) msgs.push('早睡达人');
+      else if (data.sleep_score === 1) msgs.push('熄灯偏晚');
+      if (data.exercise_score >= 3) msgs.push('运动达标');
+      else if (!data.exercise_score || data.exercise_score === 0) msgs.push('今天还没运动');
+      if (data.grooming_score >= 2) msgs.push('形象在线');
+      document.getElementById('tcSummary').textContent = msgs.length ? msgs.join('，') : '今天状态不错，继续保持';
     } else {
       document.getElementById('tcScore').textContent = '--';
       document.getElementById('tcSummary').textContent = '今天还没打卡，记得完成今日养护 ✨';
@@ -570,54 +628,100 @@ function loadTodayCard() {
   });
 }
 
-// ========== 打卡功能 ==========
-function renderStars(dim) {
-  const row = document.querySelector(`[data-dim="${dim}"]`);
-  const stars = row.querySelectorAll('.star');
-  stars.forEach((s, i) => s.classList.toggle('on', i < state[dim]));
-  row.className = 'dim' + (state[dim] ? ` on-${state[dim]}` : '');
-}
+// ========== 打卡功能（新版） ==========
+const starDims = ['sleep_score','exercise_score','grooming_score','diet_regular','diet_fullness','diet_grease','diet_score'];
 
-document.querySelectorAll('.dim').forEach(row => {
-  const dim = row.dataset.dim;
-  row.querySelectorAll('.star').forEach(star => {
+// 初始化所有星星点击
+function initStars() {
+  document.querySelectorAll('.star').forEach(star => {
     star.addEventListener('click', () => {
       if (submitted) return;
-      state[dim] = parseInt(star.dataset.val);
-      renderStars(dim);
-      updateSubmitBtn();
+      const dim = star.dataset.dim;
+      const val = parseInt(star.dataset.val);
+      state[dim] = val;
+      // 渲染同维度所有星星
+      document.querySelectorAll(`.star[data-dim="${dim}"]`).forEach(s => {
+        s.classList.toggle('on', parseInt(s.dataset.val) <= val);
+      });
     });
   });
-});
+}
 
-function updateSubmitBtn() {
-  const allFilled = Object.values(state).every(v => v > 0);
-  document.getElementById('submitBtn').disabled = !allFilled || submitted;
+// 根据熄灯时间自动算分
+function autoSleepScore() {
+  const t = document.getElementById('sleepTime').value;
+  if (!t) return;
+  const [h, m] = t.split(':').map(Number);
+  const mins = h * 60 + m;
+  let score = 0;
+  if (mins <= 22 * 60) score = 3;
+  else if (mins <= 22 * 60 + 30) score = 2;
+  else if (mins <= 23 * 60) score = 1;
+  state.sleep_score = score;
+  state.sleep_time = t;
+  document.querySelectorAll('.star[data-dim="sleep_score"]').forEach(s => {
+    s.classList.toggle('on', parseInt(s.dataset.val) <= score);
+  });
+}
+
+// 根据运动时长自动算分
+function autoExerciseScore() {
+  const mins = parseInt(document.getElementById('exerciseMin').value) || 0;
+  let score = 0;
+  if (mins >= 60) score = 3;
+  else if (mins >= 30) score = 2;
+  else if (mins > 0) score = 1;
+  state.exercise_score = score;
+  state.exercise_min = mins;
+  state.exercise_type = document.getElementById('exerciseType').value;
+  document.querySelectorAll('.star[data-dim="exercise_score"]').forEach(s => {
+    s.classList.toggle('on', parseInt(s.dataset.val) <= score);
+  });
+}
+
+// 监听输入
+function setupListeners() {
+  document.getElementById('sleepTime').addEventListener('change', autoSleepScore);
+  document.getElementById('exerciseMin').addEventListener('input', autoExerciseScore);
+  document.getElementById('exerciseType').addEventListener('change', autoExerciseScore);
 }
 
 function submitCheckin() {
+  if (submitted) return;
+  // 至少填了睡眠时间或运动时长或任意评分
+  const payload = { ...state };
+  payload.note = document.getElementById('noteInput').value || '';
+
   document.getElementById('submitBtn').textContent = '保存中...';
   fetch('/api/submit', {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(state)
+    body: JSON.stringify(payload)
   }).then(() => {
     submitted = true;
     document.getElementById('submitBtn').textContent = '已打卡';
     document.getElementById('submitBtn').disabled = true;
     document.getElementById('submittedBadge').style.display = 'block';
-    loadToday(); loadWeek(); loadTodayCard();
+    loadTodayCard(); loadWeek();
   }).catch(() => {
     document.getElementById('submitBtn').textContent = '出错，重试';
-    document.getElementById('submitBtn').disabled = false;
   });
 }
 
 function loadToday() {
   fetch('/api/today').then(r => r.json()).then(data => {
     if (data && data.check_date) {
-      state = { sleep: data.sleep, exercise: data.exercise, care: data.care, diet: data.diet };
       submitted = true;
-      ['sleep','exercise','care','diet'].forEach(renderStars);
+      state = { ...data };
+      // 填充表单
+      if (data.sleep_time) document.getElementById('sleepTime').value = data.sleep_time.slice(0,5);
+      if (data.exercise_min) document.getElementById('exerciseMin').value = data.exercise_min;
+      if (data.exercise_type) document.getElementById('exerciseType').value = data.exercise_type;
+      if (data.note) document.getElementById('noteInput').value = data.note;
+      // 渲染星星
+      starDims.forEach(dim => {
+        const val = state[dim];
+ if (val) document.querySelectorAll(`.star[data-dim="${dim}"]`).forEach(s => s.classList.toggle('on', parseInt(s.dataset.val) <= val));
+      });
       document.getElementById('submitBtn').textContent = '已打卡';
       document.getElementById('submitBtn').disabled = true;
       document.getElementById('submittedBadge').style.display = 'block';
@@ -643,14 +747,20 @@ function loadWeek() {
       const wrap = document.createElement('div'); wrap.className = 'week-bar-wrap';
       const bar = document.createElement('div'); bar.className = 'week-bar';
       const fill = document.createElement('div'); fill.className = 'week-fill';
-      if (dayData) {
-        const avg = (dayData.sleep + dayData.exercise + dayData.care + dayData.diet) / 4;
+      if (dayData && (dayData.sleep_score || dayData.exercise_score || dayData.grooming_score || dayData.diet_score)) {
+        const dims = [dayData.sleep_score, dayData.exercise_score, dayData.grooming_score, dayData.diet_score];
+        const valid = dims.filter(v => v != null && v > 0);
+        const avg = valid.length ? valid.reduce((a,b)=>a+b,0) / valid.length : 0;
         fill.style.height = (avg / 3 * 100) + '%';
         total += avg; count++;
       }
       bar.appendChild(fill);
       const score = document.createElement('div'); score.className = 'week-score';
-      score.textContent = dayData ? ((dayData.sleep + dayData.exercise + dayData.care + dayData.diet)/4).toFixed(1) : '--';
+      if (dayData && (dayData.sleep_score || dayData.exercise_score || dayData.grooming_score || dayData.diet_score)) {
+        const dims = [dayData.sleep_score, dayData.exercise_score, dayData.grooming_score, dayData.diet_score];
+        const valid = dims.filter(v => v != null && v > 0);
+        score.textContent = valid.length ? (valid.reduce((a,b)=>a+b,0) / valid.length).toFixed(1) : '--';
+      } else score.textContent = '--';
       wrap.appendChild(bar); wrap.appendChild(score);
       grid.appendChild(label); grid.appendChild(wrap);
     }
@@ -916,14 +1026,15 @@ function renderCheckinTrend(data) {
     const iso = d.toISOString().slice(0,10);
     const row = data.find(r => r.check_date === iso);
     labels.push(iso.slice(5));
-    vals.push(row ? ((row.sleep+row.exercise+row.care+row.diet)/4).toFixed(1) : 0);
+    if (row && (row.sleep_score || row.exercise_score || row.grooming_score || row.diet_score)) {
+      const dims = [row.sleep_score, row.exercise_score, row.grooming_score, row.diet_score];
+      const valid = dims.filter(v => v != null && v > 0);
+      vals.push(valid.length ? +(valid.reduce((a,b)=>a+b,0) / valid.length).toFixed(1) : 0);
+    } else vals.push(0);
   }
   chartCheckin = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [{ data: vals, backgroundColor: '#00b894', borderRadius: 4 }]
-    },
+    data: { labels, datasets: [{ data: vals, backgroundColor: '#00b894', borderRadius: 4 }] },
     options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 3 } } }
   });
 }
@@ -934,6 +1045,8 @@ document.getElementById('expDate').value = now.toISOString().slice(0,10);
 document.getElementById('expTime').value = now.toTimeString().slice(0,5);
 document.getElementById('monthLabel').textContent = currentMonth;
 
+initStars();
+setupListeners();
 initCategoryPills();
 loadToday();
 loadWeek();
