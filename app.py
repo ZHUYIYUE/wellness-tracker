@@ -48,18 +48,38 @@ def init_db():
     db = get_db()
     cur = db.cursor()
 
+    # checkins_v2: 丰富打卡维度
     cur.execute('''
         CREATE TABLE IF NOT EXISTS checkins (
             id SERIAL PRIMARY KEY,
             check_date DATE UNIQUE NOT NULL,
-            sleep INTEGER NOT NULL CHECK(sleep BETWEEN 1 AND 3),
-            exercise INTEGER NOT NULL CHECK(exercise BETWEEN 1 AND 3),
-            care INTEGER NOT NULL CHECK(care BETWEEN 1 AND 3),
-            diet INTEGER NOT NULL CHECK(diet BETWEEN 1 AND 3),
+            sleep_time TIME DEFAULT NULL,
+            sleep_score INTEGER DEFAULT NULL,
+            exercise_min INTEGER DEFAULT NULL,
+            exercise_type VARCHAR(20) DEFAULT NULL,
+            exercise_score INTEGER DEFAULT NULL,
+            grooming_score INTEGER DEFAULT NULL,
+            diet_regular INTEGER DEFAULT NULL,
+            diet_fullness INTEGER DEFAULT NULL,
+            diet_grease INTEGER DEFAULT NULL,
+            diet_score INTEGER DEFAULT NULL,
             note TEXT DEFAULT '',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # 迁移旧数据：如果表存在但有旧列，自动补列
+    try:
+        cur.execute('ALTER TABLE checkins ADD COLUMN IF NOT EXISTS sleep_time TIME DEFAULT NULL')
+        cur.execute('ALTER TABLE checkins ADD COLUMN IF NOT EXISTS exercise_min INTEGER DEFAULT NULL')
+        cur.execute('ALTER TABLE checkins ADD COLUMN IF NOT EXISTS exercise_type VARCHAR(20) DEFAULT NULL')
+        cur.execute('ALTER TABLE checkins ADD COLUMN IF NOT EXISTS grooming_score INTEGER DEFAULT NULL')
+        cur.execute('ALTER TABLE checkins ADD COLUMN IF NOT EXISTS diet_regular INTEGER DEFAULT NULL')
+        cur.execute('ALTER TABLE checkins ADD COLUMN IF NOT EXISTS diet_fullness INTEGER DEFAULT NULL')
+        cur.execute('ALTER TABLE checkins ADD COLUMN IF NOT EXISTS diet_grease INTEGER DEFAULT NULL')
+        db.commit()
+    except Exception as e:
+        print('Migration warning:', e)
+        db.rollback()
 
     cur.execute('''
         CREATE TABLE IF NOT EXISTS expenses (
@@ -205,15 +225,38 @@ def submit():
     db = get_db()
     cur = db.cursor()
     cur.execute('''
-        INSERT INTO checkins (check_date, sleep, exercise, care, diet, note)
-        VALUES (%s, %s, %s, %s, %s, %s)
+        INSERT INTO checkins (check_date, sleep_time, sleep_score,
+            exercise_min, exercise_type, exercise_score,
+            grooming_score,
+            diet_regular, diet_fullness, diet_grease, diet_score,
+            note)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         ON CONFLICT (check_date) DO UPDATE SET
-            sleep = excluded.sleep,
-            exercise = excluded.exercise,
-            care = excluded.care,
-            diet = excluded.diet,
+            sleep_time = excluded.sleep_time,
+            sleep_score = excluded.sleep_score,
+            exercise_min = excluded.exercise_min,
+            exercise_type = excluded.exercise_type,
+            exercise_score = excluded.exercise_score,
+            grooming_score = excluded.grooming_score,
+            diet_regular = excluded.diet_regular,
+            diet_fullness = excluded.diet_fullness,
+            diet_grease = excluded.diet_grease,
+            diet_score = excluded.diet_score,
             note = excluded.note
-    ''', (today, data['sleep'], data['exercise'], data['care'], data['diet'], data.get('note', '')))
+    ''', (
+        today,
+        data.get('sleep_time') or None,
+        data.get('sleep_score') or None,
+        data.get('exercise_min') or 0,
+        data.get('exercise_type') or None,
+        data.get('exercise_score') or None,
+        data.get('grooming_score') or None,
+        data.get('diet_regular') or None,
+        data.get('diet_fullness') or None,
+        data.get('diet_grease') or None,
+        data.get('diet_score') or None,
+        data.get('note', '')
+    ))
     db.commit()
     cur.close()
     return jsonify({'ok': True})
