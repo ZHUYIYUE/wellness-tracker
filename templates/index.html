@@ -3,7 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MyBase</title>
+<title>MyBase · 生活仪表盘</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -13,21 +14,47 @@
     padding: 16px 16px 80px 16px;
     color: #2d3436;
   }
-  .header {
-    text-align: center;
-    margin-bottom: 20px;
+
+  /* 顶部日期 */
+  .header-date {
+    font-size: 12px;
+    color: #b2bec3;
+    margin-bottom: 2px;
   }
-  .header h1 {
-    font-size: 24px;
-    font-weight: 700;
+  .header-title {
+    font-size: 22px;
+    font-weight: 800;
     color: #2d3436;
-    letter-spacing: 1px;
+    letter-spacing: -0.5px;
   }
-  .header .date {
-    font-size: 13px;
-    color: #a4a4a4;
-    margin-top: 4px;
+  .header-title span { color: #00b894; }
+
+  /* 今日综合卡片 */
+  .today-card {
+    background: linear-gradient(135deg, #00b894 0%, #55efc4 100%);
+    border-radius: 16px;
+    padding: 20px;
+    color: #fff;
+    margin-bottom: 14px;
+    position: relative;
+    overflow: hidden;
   }
+  .today-card::after {
+    content: '';
+    position: absolute;
+    right: -20px; top: -20px;
+    width: 120px; height: 120px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 50%;
+  }
+  .today-card .tc-label { font-size: 12px; opacity: 0.85; margin-bottom: 4px; }
+  .today-card .tc-score { font-size: 36px; font-weight: 800; line-height: 1; }
+  .today-card .tc-summary { font-size: 13px; margin-top: 8px; opacity: 0.9; }
+  .today-card .tc-row {
+    display: flex; gap: 16px; margin-top: 14px;
+  }
+  .today-card .tc-item { font-size: 12px; opacity: 0.9; }
+  .today-card .tc-item strong { font-size: 16px; display: block; margin-bottom: 2px; }
 
   .card {
     background: #fff;
@@ -41,8 +68,7 @@
     font-weight: 600;
     color: #888;
     margin-bottom: 14px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
   }
 
   /* 维度打卡 */
@@ -99,8 +125,7 @@
 
   /* 记账模块 */
   .month-arrow { font-size: 14px; cursor: pointer; padding: 4px 8px; color: #888; user-select: none; }
-  .month-arrow:hover { color: #00b894; }
-  .month-arrow.disabled { color: #ddd; pointer-events: none; }
+  .month-arrow:active { color: #00b894; }
 
   .summary-row {
     display: grid;
@@ -206,9 +231,6 @@
   .category-pill.active { background: #0984e3; color: white; }
   .category-pills { margin-bottom: 10px; }
 
-  .month-arrow { cursor: pointer; font-size: 14px; color: #888; padding: 4px 8px; user-select: none; }
-  .month-arrow:active { color: #00b894; }
-
   .budget-row {
     display: flex;
     justify-content: space-between;
@@ -224,6 +246,36 @@
   .budget-bar { height: 100%; background: #00b894; border-radius: 3px; }
   .budget-bar.over { background: #e17055; }
 
+  /* 统计页 */
+  .stat-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    margin-bottom: 14px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+  }
+  .stat-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: #888;
+    margin-bottom: 14px;
+  }
+  .stat-big {
+    font-size: 28px;
+    font-weight: 800;
+    color: #2d3436;
+  }
+  .stat-sub {
+    font-size: 12px;
+    color: #aaa;
+    margin-top: 4px;
+  }
+  .chart-wrap {
+    width: 100%;
+    height: 220px;
+    margin-top: 10px;
+  }
+
   /* 底部导航 */
   .bottom-nav {
     position: fixed;
@@ -238,11 +290,12 @@
   }
   .nav-item {
     flex: 1;
-    padding: 12px 0;
+    padding: 10px 0;
     text-align: center;
     cursor: pointer;
     color: #b2bec3;
-    font-size: 12px;
+    font-size: 11px;
+    transition: color 0.2s;
   }
   .nav-item.active { color: #00b894; }
   .nav-icon { font-size: 22px; display: block; margin-bottom: 2px; }
@@ -256,13 +309,24 @@
 </head>
 <body>
 
-<div class="header">
-  <h1>🏠 MyBase</h1>
-  <div class="date" id="todayStr"></div>
-</div>
-
-<!-- 打卡模块 -->
+<!-- ====== 养护 Tab ====== -->
 <div class="section active" id="section-checkin">
+
+  <div class="header-date" id="headerDate"></div>
+  <div class="header-title">MyBase · <span>生活仪表盘</span></div>
+
+  <!-- 今日综合卡片 -->
+  <div class="today-card" id="todayCard">
+    <div class="tc-label">今日综合评分</div>
+    <div class="tc-score" id="tcScore">--</div>
+    <div class="tc-summary" id="tcSummary">加载中…</div>
+    <div class="tc-row">
+      <div class="tc-item"><strong id="tcExpense">¥0</strong>今日支出</div>
+      <div class="tc-item"><strong id="tcBudget">--</strong>预算剩余</div>
+      <div class="tc-item"><strong id="tcStreak">0天</strong>连续打卡</div>
+    </div>
+  </div>
+
   <div class="card" id="checkinCard">
     <div id="dimList">
       <div class="dim" data-dim="sleep" data-label="睡眠">
@@ -274,7 +338,7 @@
       </div>
       <div class="dim" data-dim="exercise" data-label="运动">
         <div class="dim-label">
-          <span class="dim-icon">🏃‍♀️</span>
+          <span class="dim-icon">🏃</span>
           <div><div class="dim-name">运动</div><div class="dim-desc">提升代谢 / 恢复活力</div></div>
         </div>
         <div class="stars"><span class="star" data-val="1">★</span><span class="star" data-val="2">★</span><span class="star" data-val="3">★</span></div>
@@ -309,8 +373,11 @@
   </div>
 </div>
 
-<!-- 记账模块 -->
+<!-- ====== 记账 Tab ====== -->
 <div class="section" id="section-expense">
+  <div class="header-date" id="headerDate2"></div>
+  <div class="header-title">MyBase · <span>记账</span></div>
+
   <div class="card">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div class="card-title" style="margin-bottom:0">💰 收支概览</div>
@@ -363,6 +430,34 @@
   </div>
 </div>
 
+<!-- ====== 统计 Tab ====== -->
+<div class="section" id="section-stats">
+  <div class="header-date" id="headerDate3"></div>
+  <div class="header-title">MyBase · <span>统计</span></div>
+
+  <div class="stat-card">
+    <div class="stat-title">📅 本月支出趋势</div>
+    <div class="chart-wrap"><canvas id="chartTrend"></canvas></div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-title">🍩 分类占比</div>
+    <div class="chart-wrap"><canvas id="chartCategory"></canvas></div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-title">📊 打卡平均分（近30天）</div>
+    <div class="chart-wrap"><canvas id="chartCheckin"></canvas></div>
+  </div>
+
+  <div class="stat-card">
+    <div class="stat-title">🔥 连续打卡天数</div>
+    <div class="stat-big" id="statStreak">-- 天</div>
+    <div class="stat-sub" id="statStreakSub"></div>
+  </div>
+</div>
+
+<!-- 明细弹窗 -->
 <div class="overlay" id="detailOverlay" onclick="closeDetail()">
   <div class="overlay-content" onclick="event.stopPropagation()">
     <div class="overlay-header">
@@ -387,20 +482,17 @@
     <span class="nav-icon">💰</span>
     <span>记账</span>
   </div>
+  <div class="nav-item" data-target="section-stats" onclick="switchTab('section-stats')">
+    <span class="nav-icon">📊</span>
+    <span>统计</span>
+  </div>
 </div>
 
 <script>
 const WEEK_DAYS = ['一','二','三','四','五','六','日'];
 const CATEGORIES = ['餐饮外卖','交通出行','购物','护肤','休闲娱乐','生活缴费','通讯费','其他'];
 let currentMonth = new Date().toISOString().slice(0, 7);
-function changeMonth(delta) {
-  const [y, m] = currentMonth.split('-').map(Number);
-  const d = new Date(y, m - 1 + delta, 1);
-  currentMonth = d.toISOString().slice(0, 7);
-  document.getElementById('monthLabel').textContent = currentMonth;
-  loadExpenses();
-  loadSummary();
-}
+
 let selectedCategory = '餐饮外卖';
 let expensesData = [];
 let budgetsData = [];
@@ -408,8 +500,11 @@ let budgetsData = [];
 let state = { sleep:0, exercise:0, care:0, diet:0 };
 let submitted = false;
 
-document.getElementById('todayStr').textContent = new Date().toLocaleDateString('zh-CN', {
-  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+// 日期显示
+const todayStr = new Date().toLocaleDateString('zh-CN', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
+['headerDate','headerDate2','headerDate3'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) el.textContent = todayStr;
 });
 
 // ========== 导航切换 ==========
@@ -422,6 +517,57 @@ function switchTab(id) {
     loadExpenses();
     loadBudgets();
   }
+  if (id === 'section-stats') {
+    loadStats();
+  }
+  if (id === 'section-checkin') {
+    loadTodayCard();
+  }
+}
+
+// ========== 今日综合卡片 ==========
+function loadTodayCard() {
+  // 打卡分
+  fetch('/api/today').then(r=>r.json()).then(data => {
+    if (data && data.check_date) {
+      const avg = ((data.sleep+data.exercise+data.care+data.diet)/4).toFixed(1);
+      document.getElementById('tcScore').textContent = avg;
+      const msgs = [];
+      if (data.sleep <= 1) msgs.push('昨晚睡眠较差');
+      else if (data.sleep >= 3) msgs.push('睡眠不错');
+      if (data.exercise >= 2) msgs.push('有运动');
+      else msgs.push('今天还没运动');
+      document.getElementById('tcSummary').textContent = msgs.length ? msgs.join('，') + ' → 继续保持' : '今天状态不错，继续保持';
+    } else {
+      document.getElementById('tcScore').textContent = '--';
+      document.getElementById('tcSummary').textContent = '今天还没打卡，记得完成今日养护 ✨';
+    }
+  });
+  // 今日支出
+  const today = new Date().toLocaleDateString('en-CA');
+  fetch('/api/expenses?month=' + currentMonth).then(r=>r.json()).then(data => {
+    const todayExp = data.filter(e => e.expense_date === today);
+    const total = todayExp.reduce((s,e) => s + parseFloat(e.amount), 0);
+    document.getElementById('tcExpense').textContent = '¥' + total.toFixed(1);
+  });
+  // 预算剩余
+  fetch('/api/expenses/summary?month=' + currentMonth).then(r=>r.json()).then(data => {
+    const budgetLeft = (budgetsData.length > 0)
+      ? budgetsData.reduce((s,b) => s + parseFloat(b.amount), 0) - parseFloat(data.month_total)
+      : '--';
+    document.getElementById('tcBudget').textContent = typeof budgetLeft === 'number' ? '¥' + budgetLeft.toFixed(0) : '--';
+  });
+  // 连续打卡
+  fetch('/api/week').then(r=>r.json()).then(data => {
+    let streak = 0;
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const iso = d.toISOString().slice(0,10);
+      if (data.find(r => r.check_date === iso)) streak++;
+      else break;
+    }
+    document.getElementById('tcStreak').textContent = streak + '天';
+  });
 }
 
 // ========== 打卡功能 ==========
@@ -459,7 +605,7 @@ function submitCheckin() {
     document.getElementById('submitBtn').textContent = '已打卡';
     document.getElementById('submitBtn').disabled = true;
     document.getElementById('submittedBadge').style.display = 'block';
-    loadToday(); loadWeek();
+    loadToday(); loadWeek(); loadTodayCard();
   }).catch(() => {
     document.getElementById('submitBtn').textContent = '出错，重试';
     document.getElementById('submitBtn').disabled = false;
@@ -514,6 +660,20 @@ function loadWeek() {
 }
 
 // ========== 记账功能 ==========
+function changeMonth(delta) {
+  const maxMonth = new Date().toISOString().slice(0, 7);
+  const [y, m] = currentMonth.split('-').map(Number);
+  let newY = y, newM = m + delta;
+  if (newM > 12) { newM = 1; newY++; }
+  if (newM < 1) { newM = 12; newY--; }
+  const candidate = `${newY}-${String(newM).padStart(2,'0')}`;
+  if (candidate > maxMonth) return;
+  currentMonth = candidate;
+  document.getElementById('monthLabel').textContent = currentMonth;
+  loadExpenses();
+  loadSummary();
+}
+
 function initCategoryPills() {
   const container = document.getElementById('categoryPills');
   container.innerHTML = '';
@@ -552,8 +712,8 @@ function loadSummary() {
         <div class="budget-row">
           <div class="budget-cat">${c.category}<div style="font-size:11px;color:#aaa">${c.count} 笔</div></div>
           <div class="budget-num">
-            <span style="font-size:14px;color:${over ? '#e17055' : '#2d3436'};font-weight:600">${formatMoney(c.total)}</span>
-            <div class="budget-bar-wrap"><div class="budget-bar ${over ? 'over' : ''}" style="width:${pct}%"></div></div>
+            <span style="font-size:14px;color:${over?'#e17055':'#2d3436'};font-weight:600">${formatMoney(c.total)}</span>
+            <div class="budget-bar-wrap"><div class="budget-bar ${over?'over':''}" style="width:${pct}%"></div></div>
           </div>
         </div>
       `;
@@ -612,20 +772,17 @@ function saveBudget(category) {
   }).then(() => loadBudgets());
 }
 
-// ========== 明细弹窗 ==========
 function showDetail(mode) {
-  const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD 格式，跟随浏览器本地时区
+  const todayStr2 = new Date().toLocaleDateString('en-CA');
   const overlay = document.getElementById('detailOverlay');
   const list = document.getElementById('detailList');
-
   list.innerHTML = '<div class="no-data" style="padding:30px 0;font-size:14px">加载中...</div>';
   overlay.classList.add('show');
 
   fetch('/api/expenses?month=' + currentMonth).then(r => r.json()).then(data => {
-    const items = mode === 'today' ? data.filter(e => e.expense_date === todayStr) : data;
+    const items = mode === 'today' ? data.filter(e => e.expense_date === todayStr2) : data;
     document.getElementById('detailTitle').textContent =
       mode === 'today' ? '📋 今日支出明细' : '📋 本月支出明细';
-
     if (items.length === 0) {
       list.innerHTML = '<div class="no-data" style="padding:30px 0;font-size:14px">暂无记录</div>';
       document.getElementById('detailTotal').textContent = '';
@@ -641,7 +798,7 @@ function showDetail(mode) {
           </div>
         </div>
       `).join('');
-      const total = items.reduce((s, e) => s + parseFloat(e.amount), 0);
+      const total = items.reduce((s,e) => s + parseFloat(e.amount), 0);
       document.getElementById('detailTotal').innerHTML = `<span>${items.length} 笔记录</span><span style="color:#e17055">合计 ${formatMoney(total)}</span>`;
     }
   }).catch(() => {
@@ -674,35 +831,113 @@ function deleteExpense(id) {
   fetch('/api/expenses/' + id, { method: 'DELETE' }).then(() => loadExpenses());
 }
 
-// ========== 月份切换 ==========
-function changeMonth(delta) {
-  const maxMonth = new Date().toISOString().slice(0, 7);
-  const [y, m] = currentMonth.split('-').map(Number);
-  let newY = y, newM = m + delta;
-  if (newM > 12) { newM = 1; newY++; }
-  if (newM < 1) { newM = 12; newY--; }
-  const candidate = `${newY}-${String(newM).padStart(2, '0')}`;
-  if (candidate > maxMonth) return; // 不能切到未来月份
-  currentMonth = candidate;
-  document.getElementById('monthLabel').textContent = currentMonth;
-  loadExpenses();
-  loadSummary();
+// ========== 统计页 ==========
+let chartTrend = null, chartCategory = null, chartCheckin = null;
+
+function loadStats() {
+  // 1. 月度支出趋势（近6个月）
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(); d.setMonth(d.getMonth() - i);
+    months.push(d.toISOString().slice(0,7));
+  }
+  const trendData = [];
+  let done = 0;
+  months.forEach((m, idx) => {
+    fetch('/api/expenses/summary?month=' + m).then(r=>r.json()).then(data => {
+      trendData[idx] = parseFloat(data.month_total) || 0;
+      done++;
+      if (done === months.length) renderTrend(months, trendData);
+    }).catch(() => {
+      trendData[idx] = 0;
+      done++;
+      if (done === months.length) renderTrend(months, trendData);
+    });
+  });
+
+  // 2. 分类占比（本月）
+  fetch('/api/expenses/summary?month=' + currentMonth).then(r=>r.json()).then(data => {
+    renderCategory(data.by_category || []);
+  });
+
+  // 3. 打卡趋势（近30天）
+  fetch('/api/week').then(r=>r.json()).then(data => {
+    renderCheckinTrend(data);
+  });
+
+  // 4. 连续打卡
+  fetch('/api/week').then(r=>r.json()).then(data => {
+    let streak = 0;
+    for (let i = 0; i < 30; i++) {
+      const d = new Date(); d.setDate(d.getDate() - i);
+      const iso = d.toISOString().slice(0,10);
+      if (data.find(r => r.check_date === iso)) streak++;
+      else break;
+    }
+    document.getElementById('statStreak').textContent = streak + ' 天';
+    document.getElementById('statStreakSub').textContent =
+      streak >= 7 ? '太棒了，继续保持！' : streak >= 3 ? '不错的开始，继续加油' : '从今天开始养成习惯吧';
+  });
 }
 
-// 初始化表单默认值
+function renderTrend(labels, data) {
+  const ctx = document.getElementById('chartTrend').getContext('2d');
+  if (chartTrend) chartTrend.destroy();
+  chartTrend = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels.map(m => m.slice(5) + '月'),
+      datasets: [{ data, borderColor: '#00b894', backgroundColor: 'rgba(0,184,148,0.1)', fill: true, tension: 0.4, pointRadius: 4 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+}
+
+function renderCategory(cats) {
+  const ctx = document.getElementById('chartCategory').getContext('2d');
+  if (chartCategory) chartCategory.destroy();
+  if (!cats.length) return;
+  chartCategory = new Chart(ctx, {
+    type: 'doughnut',
+    data: {
+      labels: cats.map(c => c.category),
+      datasets: [{ data: cats.map(c => parseFloat(c.total)), backgroundColor: ['#00b894','#0984e3','#fdcb6e','#e17055','#a29bfe','#fd79a8','#55efc4','#dfe6e9'] }]
+    },
+    options: { plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } } }
+  });
+}
+
+function renderCheckinTrend(data) {
+  const ctx = document.getElementById('chartCheckin').getContext('2d');
+  if (chartCheckin) chartCheckin.destroy();
+  const labels = [], vals = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const iso = d.toISOString().slice(0,10);
+    const row = data.find(r => r.check_date === iso);
+    labels.push(iso.slice(5));
+    vals.push(row ? ((row.sleep+row.exercise+row.care+row.diet)/4).toFixed(1) : 0);
+  }
+  chartCheckin = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{ data: vals, backgroundColor: '#00b894', borderRadius: 4 }]
+    },
+    options: { plugins: { legend: { display: false } }, scales: { y: { min: 0, max: 3 } } }
+  });
+}
+
+// ========== 初始化 ==========
 const now = new Date();
-document.getElementById('expDate').value = now.toISOString().slice(0, 10);
-document.getElementById('expTime').value = now.toTimeString().slice(0, 5);
+document.getElementById('expDate').value = now.toISOString().slice(0,10);
+document.getElementById('expTime').value = now.toTimeString().slice(0,5);
+document.getElementById('monthLabel').textContent = currentMonth;
 
 initCategoryPills();
-document.getElementById('monthLabel').textContent = currentMonth;
 loadToday();
 loadWeek();
-
-// 每30秒自动刷新记账汇总（实时更新）
-setInterval(() => {
-  loadSummary();
-}, 30000);
+loadTodayCard();
 </script>
 </body>
 </html>
