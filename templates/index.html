@@ -674,6 +674,21 @@ function deleteExpense(id) {
   fetch('/api/expenses/' + id, { method: 'DELETE' }).then(() => loadExpenses());
 }
 
+// ========== 月份切换 ==========
+function changeMonth(delta) {
+  const maxMonth = new Date().toISOString().slice(0, 7);
+  const [y, m] = currentMonth.split('-').map(Number);
+  let newY = y, newM = m + delta;
+  if (newM > 12) { newM = 1; newY++; }
+  if (newM < 1) { newM = 12; newY--; }
+  const candidate = `${newY}-${String(newM).padStart(2, '0')}`;
+  if (candidate > maxMonth) return; // 不能切到未来月份
+  currentMonth = candidate;
+  document.getElementById('monthLabel').textContent = currentMonth;
+  loadExpenses();
+  loadSummary();
+}
+
 // 初始化表单默认值
 const now = new Date();
 document.getElementById('expDate').value = now.toISOString().slice(0, 10);
