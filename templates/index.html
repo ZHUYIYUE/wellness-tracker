@@ -98,6 +98,10 @@
   .no-data { color: #ccc; font-size: 12px; text-align: center; padding: 16px 0; }
 
   /* 记账模块 */
+  .month-arrow { font-size: 14px; cursor: pointer; padding: 4px 8px; color: #888; user-select: none; }
+  .month-arrow:hover { color: #00b894; }
+  .month-arrow.disabled { color: #ddd; pointer-events: none; }
+
   .summary-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -202,6 +206,9 @@
   .category-pill.active { background: #0984e3; color: white; }
   .category-pills { margin-bottom: 10px; }
 
+  .month-arrow { cursor: pointer; font-size: 14px; color: #888; padding: 4px 8px; user-select: none; }
+  .month-arrow:active { color: #00b894; }
+
   .budget-row {
     display: flex;
     justify-content: space-between;
@@ -305,7 +312,14 @@
 <!-- 记账模块 -->
 <div class="section" id="section-expense">
   <div class="card">
-    <div class="card-title">💰 收支概览</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div class="card-title" style="margin-bottom:0">💰 收支概览</div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="month-arrow" onclick="changeMonth(-1)">◀</span>
+        <span id="monthLabel" style="font-size:14px;font-weight:600;color:#2d3436;min-width:70px;text-align:center"></span>
+        <span class="month-arrow" onclick="changeMonth(1)">▶</span>
+      </div>
+    </div>
     <div class="summary-row">
       <div class="summary-box today clickable" onclick="showDetail('today')">
         <div class="label">今日支出</div>
@@ -379,6 +393,14 @@
 const WEEK_DAYS = ['一','二','三','四','五','六','日'];
 const CATEGORIES = ['餐饮外卖','交通出行','购物','护肤','休闲娱乐','生活缴费','通讯费','其他'];
 let currentMonth = new Date().toISOString().slice(0, 7);
+function changeMonth(delta) {
+  const [y, m] = currentMonth.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  currentMonth = d.toISOString().slice(0, 7);
+  document.getElementById('monthLabel').textContent = currentMonth;
+  loadExpenses();
+  loadSummary();
+}
 let selectedCategory = '餐饮外卖';
 let expensesData = [];
 let budgetsData = [];
@@ -658,6 +680,7 @@ document.getElementById('expDate').value = now.toISOString().slice(0, 10);
 document.getElementById('expTime').value = now.toTimeString().slice(0, 5);
 
 initCategoryPills();
+document.getElementById('monthLabel').textContent = currentMonth;
 loadToday();
 loadWeek();
 
